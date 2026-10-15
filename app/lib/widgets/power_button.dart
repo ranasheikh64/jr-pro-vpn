@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../core/constants.dart';
 import '../services/wireguard_service.dart';
@@ -17,30 +18,48 @@ class PowerButton extends StatefulWidget {
 }
 
 class _PowerButtonState extends State<PowerButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
+    with TickerProviderStateMixin {
+  late final AnimationController _ring1;
+  late final AnimationController _ring2;
+  late final AnimationController _ring3;
+  late final AnimationController _rotateController;
+  late final AnimationController _glowController;
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
+
+    _ring1 = AnimationController(vsync: this, duration: const Duration(milliseconds: 2200))
+      ..repeat();
+    _ring2 = AnimationController(vsync: this, duration: const Duration(milliseconds: 2200))
+      ..forward(from: 0.33)
+      ..addStatusListener((s) { if (s == AnimationStatus.completed) _ring2.repeat(); });
+    _ring3 = AnimationController(vsync: this, duration: const Duration(milliseconds: 2200))
+      ..forward(from: 0.66)
+      ..addStatusListener((s) { if (s == AnimationStatus.completed) _ring3.repeat(); });
+
+    _rotateController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 1500),
     )..repeat();
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.35).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeOut),
-    );
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _pulseController.dispose();
+    _ring1.dispose();
+    _ring2.dispose();
+    _ring3.dispose();
+    _rotateController.dispose();
+    _glowController.dispose();
     super.dispose();
   }
 
-  Color _getPrimaryColor() {
+  Color _getColor() {
     switch (widget.status) {
       case ConnectionStateStatus.connected:
         return AppConstants.successNeon;
@@ -58,96 +77,130 @@ class _PowerButtonState extends State<PowerButton>
     switch (widget.status) {
       case ConnectionStateStatus.connected:
         return Icons.shield_rounded;
-      case ConnectionStateStatus.connecting:
-      case ConnectionStateStatus.disconnecting:
-        return Icons.sync_rounded;
       case ConnectionStateStatus.error:
         return Icons.error_outline_rounded;
-      case ConnectionStateStatus.disconnected:
+      default:
         return Icons.power_settings_new_rounded;
     }
   }
 
-  String _getStatusTitle() {
+  String _getLabel() {
     switch (widget.status) {
       case ConnectionStateStatus.connected:
         return 'CONNECTED';
       case ConnectionStateStatus.connecting:
-        return 'CONNECTING...';
+        return 'ESTABLISHING TUNNEL...';
       case ConnectionStateStatus.disconnecting:
-        return 'DISCONNECTING...';
+        return 'TERMINATING...';
       case ConnectionStateStatus.error:
-        return 'FAILED';
+        return 'CONNECTION FAILED';
       case ConnectionStateStatus.disconnected:
         return 'TAP TO CONNECT';
     }
   }
 
+  Widget _buildPulseRing(AnimationController ctrl, Color color, double baseSize) {
+    return AnimatedBuilder(
+      animation: ctrl,
+      builder: (_, _) {
+        final t = ctrl.value;
+        final opacity = (1.0 - t).clamp(0.0, 1.0) * 0.55;
+        final scale = 1.0 + t * 0.55;
+        return Transform.scale(
+          scale: scale,
+          child: Container(
+            width: baseSize,
+            height: baseSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: color.withValues(alpha: opacity),
+                width: 1.8,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRotatingArc(Color color) {
+    return AnimatedBuilder(
+      animation: _rotateController,
+      builder: (_, _) {
+        return Transform.rotate(
+          angle: _rotateController.value * 2 * math.pi,
+          child: CustomPaint(
+            size: const Size(58, 58),
+            painter: _ArcPainter(color),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final activeColor = _getPrimaryColor();
+    final color = _getColor();
     final isConnected = widget.status == ConnectionStateStatus.connected;
-    final isConnecting = widget.status == ConnectionStateStatus.connecting;
+    final isActive = isConnected || widget.status == ConnectionStateStatus.connecting;
+    final isConnecting = widget.status == ConnectionStateStatus.connecting ||
+        widget.status == ConnectionStateStatus.disconnecting;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Outer interactive glow container
-        GestureDetector(
-          onTap: widget.onTap,
+        // ── Button area ─────────────────────────────────────────────────────
+        SizedBox(
+          width: 250,
+          height: 250,
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Pulse Ring Animation
-              if (isConnected || isConnecting)
-                AnimatedBuilder(
-                  animation: _pulseAnimation,
-                  builder: (context, child) {
-                    final progress = _pulseController.value;
-                    final opacity = (1.0 - progress).clamp(0.0, 1.0);
-                    return Transform.scale(
-                      scale: _pulseAnimation.value,
-                      child: Container(
-                        width: 170,
-                        height: 170,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: activeColor.withValues(alpha: opacity * 0.7),
-                            width: 2.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: activeColor.withValues(alpha: opacity * 0.3),
-                              blurRadius: 30,
-                              spreadRadius: 8,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-
-              // Ambient background blur halo
-              Container(
-                width: 170,
-                height: 170,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: isConnected
-                          ? activeColor.withValues(alpha: 0.4)
-                          : Colors.black.withValues(alpha: 0.5),
-                      blurRadius: isConnected ? 45 : 20,
-                      spreadRadius: isConnected ? 12 : 2,
-                    ),
-                  ],
+              // HUD corner brackets
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: _HudBrackets(
+                    color: color,
+                    size: 22,
+                    glowController: _glowController,
+                  ),
                 ),
               ),
 
-              // Button Outer Bezel
+              // Pulse rings (connected / connecting only)
+              if (isActive) ...[
+                _buildPulseRing(_ring3, color, 200),
+                _buildPulseRing(_ring2, color, 200),
+                _buildPulseRing(_ring1, color, 200),
+              ],
+
+              // Ambient glow halo
+              AnimatedBuilder(
+                animation: _glowController,
+                builder: (_, _) {
+                  final glow = _glowController.value;
+                  return Container(
+                    width: 155,
+                    height: 155,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withValues(
+                            alpha: isConnected ? 0.28 + glow * 0.12 : 0.06,
+                          ),
+                          blurRadius: isConnected ? 50 : 18,
+                          spreadRadius: isConnected ? 16 : 2,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+              // Outer bezel ring
               Container(
                 width: 155,
                 height: 155,
@@ -155,68 +208,61 @@ class _PowerButtonState extends State<PowerButton>
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      AppConstants.surfaceLight,
-                      AppConstants.surface,
-                      AppConstants.background,
+                      const Color(0xFF1A2540),
+                      const Color(0xFF0B1120),
+                      const Color(0xFF060C18),
                     ],
-                    stops: const [0.3, 0.8, 1.0],
+                    stops: const [0.3, 0.75, 1.0],
                   ),
                   border: Border.all(
-                    color: isConnected
-                        ? activeColor
-                        : AppConstants.border.withValues(alpha: 0.8),
-                    width: isConnected ? 3 : 2,
+                    color: color.withValues(alpha: isConnected ? 0.9 : 0.35),
+                    width: isConnected ? 2.5 : 1.5,
                   ),
                 ),
-                child: Center(
-                  // Inner Plate
-                  child: Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: isConnected
-                            ? [
-                                activeColor.withValues(alpha: 0.25),
-                                activeColor.withValues(alpha: 0.08),
-                              ]
-                            : [
-                                const Color(0xFF1F2436),
-                                const Color(0xFF141724),
-                              ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+              ),
+
+              // Tap target – inner plate
+              GestureDetector(
+                onTap: widget.onTap,
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: isConnected
+                          ? [
+                              color.withValues(alpha: 0.22),
+                              color.withValues(alpha: 0.06),
+                            ]
+                          : [
+                              const Color(0xFF1A2540),
+                              const Color(0xFF0F1829),
+                            ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        blurRadius: 12,
+                        offset: const Offset(2, 4),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          blurRadius: 10,
-                          offset: const Offset(3, 4),
-                        ),
-                        BoxShadow(
-                          color: activeColor.withValues(alpha: isConnected ? 0.3 : 0.05),
-                          blurRadius: 15,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: isConnecting
-                          ? SizedBox(
-                              width: 48,
-                              height: 48,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3.5,
-                                color: activeColor,
-                              ),
-                            )
-                          : Icon(
-                              _getIcon(),
-                              size: 56,
-                              color: isConnected ? activeColor : Colors.white70,
-                            ),
-                    ),
+                      BoxShadow(
+                        color: color.withValues(alpha: isConnected ? 0.25 : 0.04),
+                        blurRadius: 20,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: isConnecting
+                        ? _buildRotatingArc(color)
+                        : Icon(
+                            _getIcon(),
+                            size: 54,
+                            color: color,
+                          ),
                   ),
                 ),
               ),
@@ -224,46 +270,30 @@ class _PowerButtonState extends State<PowerButton>
           ),
         ),
 
-        const SizedBox(height: 28),
+        const SizedBox(height: 24),
 
-        // Status Indicator Badge
+        // ── Status badge ────────────────────────────────────────────────────
         AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
           decoration: BoxDecoration(
-            color: activeColor.withValues(alpha: 0.12),
+            color: color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: activeColor.withValues(alpha: 0.3),
-              width: 1,
-            ),
+            border: Border.all(color: color.withValues(alpha: 0.28)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: activeColor,
-                  boxShadow: [
-                    BoxShadow(
-                      color: activeColor.withValues(alpha: 0.8),
-                      blurRadius: 8,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
+              _PulseDot(color: color, animate: isActive),
+              const SizedBox(width: 8),
               Text(
-                _getStatusTitle(),
+                _getLabel(),
                 style: TextStyle(
-                  color: activeColor,
-                  fontSize: 13,
+                  color: color,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
+                  letterSpacing: 1.6,
                 ),
               ),
             ],
@@ -272,4 +302,179 @@ class _PowerButtonState extends State<PowerButton>
       ],
     );
   }
+}
+
+// ─── HUD corner brackets ─────────────────────────────────────────────────────
+
+class _HudBrackets extends StatelessWidget {
+  final Color color;
+  final double size;
+  final AnimationController glowController;
+
+  const _HudBrackets({
+    required this.color,
+    required this.size,
+    required this.glowController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: glowController,
+      builder: (_, _) {
+        final c = color.withValues(alpha: 0.45 + glowController.value * 0.25);
+        return Stack(
+          children: [
+            Positioned(top: 0, left: 0,  child: _Bracket(color: c, size: size, isTop: true,  isLeft: true)),
+            Positioned(top: 0, right: 0, child: _Bracket(color: c, size: size, isTop: true,  isLeft: false)),
+            Positioned(bottom: 0, left: 0,  child: _Bracket(color: c, size: size, isTop: false, isLeft: true)),
+            Positioned(bottom: 0, right: 0, child: _Bracket(color: c, size: size, isTop: false, isLeft: false)),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _Bracket extends StatelessWidget {
+  final Color color;
+  final double size;
+  final bool isTop;
+  final bool isLeft;
+
+  const _Bracket({
+    required this.color,
+    required this.size,
+    required this.isTop,
+    required this.isLeft,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        children: [
+          // Horizontal bar
+          Positioned(
+            top: isTop ? 0 : null,
+            bottom: isTop ? null : 0,
+            left: isLeft ? 0 : null,
+            right: isLeft ? null : 0,
+            child: Container(width: size, height: 2, color: color),
+          ),
+          // Vertical bar
+          Positioned(
+            top: isTop ? 0 : null,
+            bottom: isTop ? null : 0,
+            left: isLeft ? 0 : null,
+            right: isLeft ? null : 0,
+            child: Container(width: 2, height: size, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Pulsing dot ─────────────────────────────────────────────────────────────
+
+class _PulseDot extends StatefulWidget {
+  final Color color;
+  final bool animate;
+  const _PulseDot({required this.color, required this.animate});
+
+  @override
+  State<_PulseDot> createState() => _PulseDotState();
+}
+
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.animate) {
+      return Container(
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: widget.color),
+      );
+    }
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, _) => Container(
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: widget.color,
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withValues(alpha: 0.3 + _ctrl.value * 0.55),
+              blurRadius: 6 + _ctrl.value * 6,
+              spreadRadius: 1 + _ctrl.value * 2,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Rotating arc painter ────────────────────────────────────────────────────
+
+class _ArcPainter extends CustomPainter {
+  final Color color;
+  _ArcPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final radius = (size.width / 2) - 4;
+
+    // Background track
+    canvas.drawCircle(
+      Offset(cx, cy),
+      radius,
+      Paint()
+        ..color = color.withValues(alpha: 0.15)
+        ..strokeWidth = 4
+        ..style = PaintingStyle.stroke,
+    );
+
+    // Arc
+    final rect = Rect.fromCircle(center: Offset(cx, cy), radius: radius);
+    canvas.drawArc(
+      rect,
+      -math.pi / 2,
+      math.pi * 1.4,
+      false,
+      Paint()
+        ..color = color
+        ..strokeWidth = 4
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ArcPainter old) => old.color != color;
 }

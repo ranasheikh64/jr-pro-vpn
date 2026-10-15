@@ -44,8 +44,7 @@ class _StatsCardState extends State<StatsCard> {
     if (widget.status == ConnectionStateStatus.connected) {
       final start = _wireguardService.connectedAt ?? DateTime.now();
       _duration = DateTime.now().difference(start);
-
-      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (mounted) {
           setState(() {
             _duration = DateTime.now().difference(start);
@@ -68,97 +67,81 @@ class _StatsCardState extends State<StatsCard> {
   }
 
   String _formatDuration(Duration d) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final hours = twoDigits(d.inHours);
-    final minutes = twoDigits(d.inMinutes.remainder(60));
-    final seconds = twoDigits(d.inSeconds.remainder(60));
-    return d.inHours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
+    String two(int n) => n.toString().padLeft(2, '0');
+    return d.inHours > 0
+        ? '${two(d.inHours)}:${two(d.inMinutes.remainder(60))}:${two(d.inSeconds.remainder(60))}'
+        : '${two(d.inMinutes)}:${two(d.inSeconds.remainder(60))}';
   }
 
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+    if (bytes < 1048576) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1073741824) return '${(bytes / 1048576).toStringAsFixed(1)} MB';
+    return '${(bytes / 1073741824).toStringAsFixed(2)} GB';
   }
 
   @override
   Widget build(BuildContext context) {
     final isConnected = widget.status == ConnectionStateStatus.connected;
+    final activeColor = isConnected ? AppConstants.successNeon : AppConstants.primaryNeon;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppConstants.cardBg,
-        borderRadius: BorderRadius.circular(24),
+        color: const Color(0xFF0A1422).withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isConnected
-              ? AppConstants.successNeon.withValues(alpha: 0.3)
-              : AppConstants.border,
+          color: activeColor.withValues(alpha: isConnected ? 0.35 : 0.18),
           width: 1,
         ),
         boxShadow: [
           if (isConnected)
             BoxShadow(
-              color: AppConstants.successNeon.withValues(alpha: 0.08),
-              blurRadius: 20,
+              color: AppConstants.successNeon.withValues(alpha: 0.07),
+              blurRadius: 24,
               spreadRadius: 2,
             ),
         ],
       ),
       child: Column(
         children: [
-          // Row 1: Duration Timer & Protocol
+          // ── Top row: IP + Protocol ─────────────────────────────────────
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'CONNECTION TIME',
-                    style: TextStyle(
-                      color: Colors.white38,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    isConnected ? _formatDuration(_duration) : '00:00',
-                    style: TextStyle(
-                      color: isConnected ? Colors.white : Colors.white30,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ],
+              // IP block
+              Expanded(
+                child: _StatTile(
+                  label: 'PUBLIC IP',
+                  value: isConnected ? widget.ipAddress : '───.───.───.───',
+                  icon: Icons.public_rounded,
+                  color: activeColor,
+                  isActive: isConnected,
+                  mono: true,
+                ),
               ),
+              const SizedBox(width: 10),
+              // Protocol badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppConstants.primaryNeon.withValues(alpha: 0.1),
+                  color: AppConstants.primaryNeon.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: AppConstants.primaryNeon.withValues(alpha: 0.2),
                   ),
                 ),
-                child: const Row(
+                child: Column(
                   children: [
-                    Icon(
-                      Icons.lock_outline_rounded,
-                      color: AppConstants.primaryNeon,
-                      size: 14,
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      'WireGuard®',
+                    const Icon(Icons.lock_outline_rounded,
+                        color: AppConstants.primaryNeon, size: 16),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'WG®',
                       style: TextStyle(
                         color: AppConstants.primaryNeon,
-                        fontSize: 12,
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
                       ),
                     ),
                   ],
@@ -167,106 +150,138 @@ class _StatsCardState extends State<StatsCard> {
             ],
           ),
 
-          const Divider(color: AppConstants.border, height: 24),
+          const SizedBox(height: 12),
 
-          // Row 2: IP Address & Traffic Stats
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Virtual IP
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppConstants.surfaceLight,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.public_rounded,
-                      size: 18,
-                      color: isConnected ? AppConstants.successNeon : Colors.white38,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'IP ADDRESS',
-                        style: TextStyle(
-                          color: Colors.white38,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        isConnected ? widget.ipAddress : '---.---.---.---',
-                        style: TextStyle(
-                          color: isConnected ? Colors.white : Colors.white30,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
+          // ── Divider ────────────────────────────────────────────────────
+          Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  activeColor.withValues(alpha: 0.25),
+                  Colors.transparent,
                 ],
               ),
+            ),
+          ),
 
-              // Traffic Down / Up
-              Row(
-                children: [
-                  // Download
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.arrow_downward_rounded,
-                        size: 16,
-                        color: isConnected ? AppConstants.primaryNeon : Colors.white24,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        isConnected
-                            ? _formatBytes(_wireguardService.bytesIn)
-                            : '0 KB',
-                        style: TextStyle(
-                          color: isConnected ? Colors.white70 : Colors.white24,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 12),
-                  // Upload
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.arrow_upward_rounded,
-                        size: 16,
-                        color: isConnected ? AppConstants.purpleNeon : Colors.white24,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        isConnected
-                            ? _formatBytes(_wireguardService.bytesOut)
-                            : '0 KB',
-                        style: TextStyle(
-                          color: isConnected ? Colors.white70 : Colors.white24,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+          const SizedBox(height: 12),
+
+          // ── Bottom row: Download · Upload · Session ────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: _StatTile(
+                  label: 'DOWNLOAD',
+                  value: isConnected
+                      ? _formatBytes(_wireguardService.bytesIn)
+                      : '─ ─',
+                  icon: Icons.arrow_downward_rounded,
+                  color: AppConstants.primaryNeon,
+                  isActive: isConnected,
+                ),
+              ),
+              _VerticalDivider(color: activeColor),
+              Expanded(
+                child: _StatTile(
+                  label: 'UPLOAD',
+                  value: isConnected
+                      ? _formatBytes(_wireguardService.bytesOut)
+                      : '─ ─',
+                  icon: Icons.arrow_upward_rounded,
+                  color: AppConstants.purpleNeon,
+                  isActive: isConnected,
+                ),
+              ),
+              _VerticalDivider(color: activeColor),
+              Expanded(
+                child: _StatTile(
+                  label: 'SESSION',
+                  value: isConnected ? _formatDuration(_duration) : '──:──',
+                  icon: Icons.timer_outlined,
+                  color: activeColor,
+                  isActive: isConnected,
+                  mono: true,
+                ),
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Stat tile ───────────────────────────────────────────────────────────────
+
+class _StatTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final bool isActive;
+  final bool mono;
+
+  const _StatTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.isActive,
+    this.mono = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 12, color: isActive ? color : Colors.white24),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white30,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        Text(
+          value,
+          style: TextStyle(
+            color: isActive ? Colors.white : Colors.white24,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            fontFamily: mono ? 'monospace' : null,
+            letterSpacing: mono ? 0.8 : 0,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Vertical divider ────────────────────────────────────────────────────────
+
+class _VerticalDivider extends StatelessWidget {
+  final Color color;
+  const _VerticalDivider({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 36,
+      margin: const EdgeInsets.symmetric(horizontal: 6),
+      color: color.withValues(alpha: 0.18),
     );
   }
 }
