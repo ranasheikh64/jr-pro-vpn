@@ -45,6 +45,10 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           _vpnStatus = status;
         });
+
+        if (status == ConnectionStateStatus.connected) {
+          _verifyLiveConnection();
+        }
       }
     });
 
@@ -75,11 +79,51 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  Future<void> _verifyLiveConnection() async {
+    // Wait briefly for handshake completion
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (!mounted || _vpnStatus != ConnectionStateStatus.connected) return;
+
+    debugPrint('🔎 [LIVE-VERIFY] Checking public IP to confirm tunnel routing...');
+    final liveIp = await VpnApiService.checkPublicIp();
+
+    if (liveIp != null && mounted) {
+      setState(() {
+        _activeIp = liveIp;
+      });
+      debugPrint('🎉 [LIVE-VERIFIED] VPN routing verified! Your public IP is: $liveIp');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.verified_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Connected! Verified IP: $liveIp (${_selectedServer.country})',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppConstants.successNeon,
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } else {
+      debugPrint('⚠️ [LIVE-VERIFY] Waiting for handshake or packets...');
+    }
+  }
+
   Future<void> _toggleVpn() async {
     if (_isLoading) return;
 
     if (_vpnStatus == ConnectionStateStatus.connected) {
       // Disconnect
+      debugPrint('🛑 [USER ACTION] Disconnecting VPN...');
       setState(() => _isLoading = true);
       try {
         await _wireguardService.disconnect();
@@ -90,6 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } else {
       // Connect
+      debugPrint('🚀 [USER ACTION] Connecting to ${_selectedServer.country} (${_selectedServer.city})...');
       setState(() => _isLoading = true);
       try {
         // Request config from Node.js API or fallback
@@ -109,6 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
           wgQuickConfig: configResponse.wgQuickConfig,
         );
       } catch (e) {
+        debugPrint('❌ [USER ACTION] Connection failed: $e');
         _showError('Connection failed: $e');
       } finally {
         if (mounted) setState(() => _isLoading = false);

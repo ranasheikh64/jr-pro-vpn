@@ -54,6 +54,9 @@ class VpnApiService {
   /// Request WireGuard configuration for the selected server
   Future<VpnConfigResponse> getVpnConfig(String serverId) async {
     final deviceId = await DeviceService.getOrCreateDeviceId();
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('📡 [VPN-API] Connecting to Cloud Backend: $baseUrl/api/vpn/config');
+    debugPrint('📱 [VPN-API] Device ID: $deviceId | Selected Server: $serverId');
 
     try {
       final response = await http
@@ -65,25 +68,37 @@ class VpnApiService {
               'serverId': serverId,
             }),
           )
-          .timeout(const Duration(seconds: 5));
+          .timeout(const Duration(seconds: 6));
+
+      debugPrint('📥 [VPN-API] Response Status Code: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true && data['wgQuickConfig'] != null) {
+          final endpoint = data['server']?['endpoint'] ??
+              '${AppConstants.fallbackServerHost}:${AppConstants.fallbackServerPort}';
+          final clientIp = data['clientIp'] ?? '10.66.0.2';
+
+          debugPrint('✅ [VPN-API] Configuration received from VPS!');
+          debugPrint('🌐 [VPN-API] Remote Server Endpoint: $endpoint');
+          debugPrint('📍 [VPN-API] Allocated Virtual Tunnel IP: $clientIp');
+          debugPrint('🔑 [VPN-API] WireGuard Config Payload:\n${data['wgQuickConfig']}');
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
           return VpnConfigResponse(
             success: true,
             wgQuickConfig: data['wgQuickConfig'],
-            serverEndpoint: data['server']['endpoint'] ?? '${AppConstants.fallbackServerHost}:${AppConstants.fallbackServerPort}',
-            clientIp: data['clientIp'],
+            serverEndpoint: endpoint,
+            clientIp: clientIp,
           );
         }
       }
     } catch (e) {
-      debugPrint('⚠️ Warning fetching config from API: $e. Using pre-configured fallback.');
+      debugPrint('⚠️ [VPN-API] Error fetching config from $baseUrl: $e');
+      debugPrint('🔄 [VPN-API] Falling back to pre-configured Google Cloud VPS.');
     }
 
     // Seamless fallback to pre-configured Google Cloud VPS
-    // Uses slot 1 test configuration
     const fallbackConfig = '''[Interface]
 PrivateKey = MJWDTuMoMvHneO4D7zJAe8NeuzVSyC0mYcg26UhJsFI=
 Address = 10.66.66.2/32
@@ -96,11 +111,32 @@ AllowedIPs = 0.0.0.0/0
 PersistentKeepalive = 25
 ''';
 
+    debugPrint('⚠️ [VPN-API] Using fallback configuration.');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
     return const VpnConfigResponse(
       success: true,
       wgQuickConfig: fallbackConfig,
       serverEndpoint: '${AppConstants.fallbackServerHost}:${AppConstants.fallbackServerPort}',
       clientIp: '10.66.66.2',
     );
+  }
+
+  /// Live verify external public IP address
+  static Future<String?> checkPublicIp() async {
+    try {
+      final response = await http
+          .get(Uri.parse('https://api.ipify.org?format=json'))
+          .timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final ip = data['ip'] as String?;
+        debugPrint('🌐 [PUBLIC-IP-CHECK] Current External Public IP: $ip');
+        return ip;
+      }
+    } catch (e) {
+      debugPrint('⚠️ [PUBLIC-IP-CHECK] Note: External IP query error ($e)');
+    }
+    return null;
   }
 }

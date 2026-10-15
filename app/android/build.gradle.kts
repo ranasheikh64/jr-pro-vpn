@@ -3,11 +3,6 @@ allprojects {
         google()
         mavenCentral()
     }
-    tasks.whenTaskAdded {
-        if (name.contains("AarMetadata")) {
-            enabled = false
-        }
-    }
 }
 
 val newBuildDir: Directory =
@@ -25,9 +20,13 @@ subprojects {
 }
 
 subprojects {
-    tasks.whenTaskAdded {
-        if (name.contains("AarMetadata")) {
-            enabled = false
+    val p = this
+    if (p.name != "app") {
+        p.afterEvaluate {
+            val android = p.extensions.findByName("android")
+            if (android is com.android.build.gradle.BaseExtension) {
+                android.compileSdkVersion(36)
+            }
         }
     }
 }

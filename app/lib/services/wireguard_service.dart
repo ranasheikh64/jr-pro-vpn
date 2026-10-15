@@ -70,25 +70,31 @@ class WireguardService {
   }
 
   void _onVpnStageChanged(VpnStage stage) {
-    debugPrint('🔄 WireGuard Native Stage: $stage');
+    debugPrint('════════════════════════════════════════════════════════');
+    debugPrint('🔄 [WIREGUARD STAGE] Status: ${stage.name.toUpperCase()}');
     switch (stage) {
       case VpnStage.connected:
         _connectedAt = DateTime.now();
         _updateStatus(ConnectionStateStatus.connected);
+        debugPrint('🎉 [WIREGUARD] Tunnel is ACTIVE! Native interface UP.');
         break;
       case VpnStage.connecting:
       case VpnStage.waitingConnection:
         _updateStatus(ConnectionStateStatus.connecting);
+        debugPrint('⏳ [WIREGUARD] Negotiating connection with server...');
         break;
       case VpnStage.disconnecting:
         _updateStatus(ConnectionStateStatus.disconnecting);
+        debugPrint('🔌 [WIREGUARD] Disconnecting tunnel...');
         break;
       case VpnStage.disconnected:
       default:
         _connectedAt = null;
         _updateStatus(ConnectionStateStatus.disconnected);
+        debugPrint('⚪ [WIREGUARD] Tunnel Disconnected.');
         break;
     }
+    debugPrint('════════════════════════════════════════════════════════');
   }
 
   void _updateStatus(ConnectionStateStatus status) {
@@ -105,6 +111,7 @@ class WireguardService {
 
     try {
       _updateStatus(ConnectionStateStatus.connecting);
+      debugPrint('🚀 [WIREGUARD] Calling startVpn() for: $serverAddress');
 
       await _wireGuard.startVpn(
         serverAddress: serverAddress,
@@ -112,9 +119,10 @@ class WireguardService {
         providerBundleIdentifier: 'com.jronix.vpn.WGExtension',
       );
 
+      debugPrint('✅ [WIREGUARD] startVpn() invoked without error');
       return true;
     } catch (e) {
-      debugPrint('❌ Error starting WireGuard VPN: $e');
+      debugPrint('❌ [WIREGUARD] Error starting WireGuard VPN: $e');
       _updateStatus(ConnectionStateStatus.disconnected);
       rethrow;
     }
@@ -124,12 +132,14 @@ class WireguardService {
   Future<void> disconnect() async {
     try {
       _updateStatus(ConnectionStateStatus.disconnecting);
+      debugPrint('🛑 [WIREGUARD] Calling stopVpn()');
       await _wireGuard.stopVpn();
     } catch (e) {
-      debugPrint('❌ Error stopping WireGuard VPN: $e');
+      debugPrint('❌ [WIREGUARD] Error stopping WireGuard VPN: $e');
     } finally {
       _connectedAt = null;
       _updateStatus(ConnectionStateStatus.disconnected);
+      debugPrint('⚪ [WIREGUARD] Disconnect complete.');
     }
   }
 

@@ -1,4 +1,4 @@
-# jronix_vpn
+# app
 
 A new Flutter project.
 
