@@ -124,6 +124,9 @@ function getOrCreateConfig({ deviceId, serverConfig }) {
     device.lastSeen = new Date().toISOString();
     devices[deviceId] = device;
     saveDevices(devices);
+
+    // Re-verify peer is registered in kernel (e.g. after server reboot)
+    syncPeerToWireguard(device.publicKey, device.clientIp);
   }
 
   const dns = serverConfig.dns || '1.1.1.1, 8.8.8.8';
