@@ -68,7 +68,7 @@ class VpnApiService {
               'serverId': serverId,
             }),
           )
-          .timeout(const Duration(seconds: 6));
+          .timeout(const Duration(seconds: 10));
 
       debugPrint('📥 [VPN-API] Response Status Code: ${response.statusCode}');
 
@@ -91,35 +91,31 @@ class VpnApiService {
             serverEndpoint: endpoint,
             clientIp: clientIp,
           );
+        } else {
+          return VpnConfigResponse(
+            success: false,
+            wgQuickConfig: '',
+            serverEndpoint: '',
+            errorMessage: data['message'] ?? 'Failed to generate configuration',
+          );
         }
+      } else {
+        return VpnConfigResponse(
+          success: false,
+          wgQuickConfig: '',
+          serverEndpoint: '',
+          errorMessage: 'Server returned HTTP ${response.statusCode}',
+        );
       }
     } catch (e) {
-      debugPrint('⚠️ [VPN-API] Error fetching config from $baseUrl: $e');
-      debugPrint('🔄 [VPN-API] Falling back to pre-configured Google Cloud VPS.');
+      debugPrint('❌ [VPN-API] Error fetching config from $baseUrl: $e');
+      return VpnConfigResponse(
+        success: false,
+        wgQuickConfig: '',
+        serverEndpoint: '',
+        errorMessage: 'Connection to backend API failed: $e',
+      );
     }
-
-    // Seamless fallback to pre-configured Google Cloud VPS
-    const fallbackConfig = '''[Interface]
-PrivateKey = MJWDTuMoMvHneO4D7zJAe8NeuzVSyC0mYcg26UhJsFI=
-Address = 10.66.66.2/32
-DNS = ${AppConstants.fallbackDns}
-
-[Peer]
-PublicKey = ${AppConstants.fallbackServerPublicKey}
-Endpoint = ${AppConstants.fallbackServerHost}:${AppConstants.fallbackServerPort}
-AllowedIPs = 0.0.0.0/0
-PersistentKeepalive = 25
-''';
-
-    debugPrint('⚠️ [VPN-API] Using fallback configuration.');
-    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-    return const VpnConfigResponse(
-      success: true,
-      wgQuickConfig: fallbackConfig,
-      serverEndpoint: '${AppConstants.fallbackServerHost}:${AppConstants.fallbackServerPort}',
-      clientIp: '10.66.66.2',
-    );
   }
 
   /// Live verify external public IP address

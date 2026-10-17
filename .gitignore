@@ -37,3 +37,6 @@ server/data/devices.json
 *.iws
 .DS_Store
 Thumbs.db
+
+# Independent Repositories
+landing-page/

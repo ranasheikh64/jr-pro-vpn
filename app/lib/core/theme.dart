@@ -3,25 +3,17 @@ import 'package:google_fonts/google_fonts.dart';
 import 'constants.dart';
 
 class AppTheme {
-  static ThemeData get darkTheme {
+  static ThemeData get lightTheme {
     return ThemeData(
-      brightness: Brightness.dark,
-      fontFamily: GoogleFonts.outfit().fontFamily,
-      scaffoldBackgroundColor: AppConstants.background,
-      primaryColor: AppConstants.primaryNeon,
-      colorScheme: const ColorScheme.dark(
-        primary: AppConstants.primaryNeon,
-        secondary: AppConstants.purpleNeon,
-        surface: AppConstants.surface,
-        error: AppConstants.errorNeon,
-      ),
-      cardTheme: CardThemeData(
-        color: AppConstants.cardBg,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: AppConstants.border, width: 1),
-        ),
+      brightness: Brightness.light,
+      fontFamily: GoogleFonts.poppins().fontFamily,
+      scaffoldBackgroundColor: AppConstants.scaffoldWhite,
+      primaryColor: AppConstants.goldPrimary,
+      colorScheme: const ColorScheme.light(
+        primary: AppConstants.goldPrimary,
+        secondary: AppConstants.goldDark,
+        surface: AppConstants.scaffoldWhite,
+        error: AppConstants.statusRed,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
@@ -31,4 +23,6 @@ class AppTheme {
       useMaterial3: true,
     );
   }
+
+  static ThemeData get darkTheme => lightTheme;
 }
