@@ -8,13 +8,13 @@ class AppConstants {
 
   // Default Node.js API endpoint (Hosted or local)
   // For Android emulator: 10.0.2.2:3000, for physical devices: your machine IP or VPS IP
-  static const String defaultApiUrl = 'http://35.223.35.45:3000';
+  static const String defaultApiUrl = 'http://34.72.194.64:3000';
 
   // Fallback Google Cloud VPS WireGuard configuration
-  static const String fallbackServerHost = '35.223.35.45';
+  static const String fallbackServerHost = '34.72.194.64';
   static const int fallbackServerPort = 51820;
   static const String fallbackServerPublicKey =
-      'NFwVhrxOOqz74MEaZ79rJ+a7hOwqc8YuQnsMOuNsJ20=';
+      'Y5hvHg1vkOPcl2gNVFwY+cjoTZBYq5dPg/BRjnD/3yM=';
   static const String fallbackDns = '1.1.1.1, 8.8.8.8';
 
   // Colors
