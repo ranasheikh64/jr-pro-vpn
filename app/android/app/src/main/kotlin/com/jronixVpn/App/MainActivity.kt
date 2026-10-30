@@ -1,4 +1,4 @@
-package com.example.app
+package com.jronixVpn.App
 
 import io.flutter.embedding.android.FlutterActivity
 
