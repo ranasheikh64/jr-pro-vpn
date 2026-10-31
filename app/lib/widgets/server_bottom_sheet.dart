@@ -66,21 +66,24 @@ class _ServerBottomSheetState extends State<ServerBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.62,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(36)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 24,
-            spreadRadius: 2,
-            offset: Offset(0, -4),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Container(
+          height: (MediaQuery.of(context).size.height * 0.65).clamp(380.0, 600.0),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(36)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 24,
+                spreadRadius: 2,
+                offset: Offset(0, -4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
+          child: Column(
         children: [
           const SizedBox(height: 12),
 
@@ -278,6 +281,8 @@ class _ServerBottomSheetState extends State<ServerBottomSheet> {
           ),
         ],
       ),
+    ),
+    ),
     );
   }
 }

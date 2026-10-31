@@ -5,10 +5,13 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = Jronix Pro VPN
+PRODUCT_NAME = JRonix VPN
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.app
+PRODUCT_BUNDLE_IDENTIFIER = com.jronix.vpn
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 JRonix. All rights reserved.
+
+// Development Team for automatic code signing
+DEVELOPMENT_TEAM = 66C54VWS6C
