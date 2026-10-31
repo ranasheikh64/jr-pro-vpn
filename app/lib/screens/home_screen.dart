@@ -284,10 +284,11 @@ class _HomeScreenState extends State<HomeScreen> {
       drawer: _buildDrawer(),
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final isWideScreen = constraints.maxWidth > 520;
           final screenHeight = constraints.maxHeight;
-          final domeHeight = (screenHeight * 0.42).clamp(320.0, 390.0);
+          final domeHeight = (screenHeight * 0.42).clamp(290.0, 390.0);
 
-          return Column(
+          final Widget content = Column(
             children: [
               // ── Top Curved Dome (Golden Gradient) ──────────────────────
               ClipPath(
@@ -604,6 +605,55 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           );
+
+          if (isWideScreen) {
+            return Container(
+              width: double.infinity,
+              height: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF090D16),
+                    Color(0xFF131B2E),
+                    Color(0xFF0B0F19),
+                  ],
+                ),
+              ),
+              child: Center(
+                child: Container(
+                  width: 440,
+                  height: screenHeight > 820 ? 800 : screenHeight * 0.95,
+                  decoration: BoxDecoration(
+                    color: AppConstants.scaffoldWhite,
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: AppConstants.goldPrimary.withValues(alpha: 0.3),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        blurRadius: 40,
+                        spreadRadius: 4,
+                        offset: const Offset(0, 10),
+                      ),
+                      BoxShadow(
+                        color: AppConstants.goldPrimary.withValues(alpha: 0.12),
+                        blurRadius: 24,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: content,
+                ),
+              ),
+            );
+          }
+
+          return content;
         },
       ),
     );
